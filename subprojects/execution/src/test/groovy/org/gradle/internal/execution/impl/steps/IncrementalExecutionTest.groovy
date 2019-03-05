@@ -59,9 +59,9 @@ import org.gradle.testing.internal.util.Specification
 import org.junit.Rule
 
 import java.time.Duration
-import java.util.function.BooleanSupplier
+import java.util.function.Supplier
 
-import static org.gradle.internal.execution.ExecutionOutcome.EXECUTED
+import static org.gradle.internal.execution.ExecutionOutcome.EXECUTED_FULLY
 import static org.gradle.internal.execution.ExecutionOutcome.UP_TO_DATE
 
 class IncrementalExecutionTest extends Specification {
@@ -139,14 +139,14 @@ class IncrementalExecutionTest extends Specification {
             "file": [file("parent/outFile")],
             "files": [file("parent1/outFile"), file("parent2/outputFile1"), file("parent2/outputFile2")],
         ).withWork { ->
-            true
+            EXECUTED_FULLY
         }.build()
 
         when:
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
 
         def allDirs = ["outDir", "outDir1", "outDir2"].collect { file(it) }
@@ -165,7 +165,7 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
 
         result.finalOutputs.keySet() == ["dir", "emptyDir", "file", "missingDir", "missingFile"] as Set
@@ -181,7 +181,7 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
 
         def origin = result.originMetadata.buildInvocationId
@@ -206,7 +206,7 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
 
         def origin = result.originMetadata.buildInvocationId
@@ -217,7 +217,7 @@ class IncrementalExecutionTest extends Specification {
         result = outOfDate(builder.build(), outputFilesChanged(file: [outputFile]))
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
         result.originMetadata.buildInvocationId == buildInvocationScopeId.id
         result.originMetadata.buildInvocationId != origin
@@ -241,7 +241,7 @@ class IncrementalExecutionTest extends Specification {
         result = outOfDate(builder.build(), "Task has failed previously.")
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
         result.originMetadata.buildInvocationId == buildInvocationScopeId.id
         result.originMetadata.buildInvocationId != origin
@@ -252,9 +252,9 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["No history is available."]
+        result.executionReasons == ["No history is available."]
     }
 
     def "out of date when output file removed"() {
@@ -266,9 +266,9 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["Output property 'file' file ${outputFile.absolutePath} has been removed."]
+        result.executionReasons == ["Output property 'file' file ${outputFile.absolutePath} has been removed."]
     }
 
     def "out of date when output file in output dir removed"() {
@@ -280,9 +280,9 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(unitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has been removed."]
+        result.executionReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has been removed."]
     }
 
     def "out of date when output file has changed type"() {
@@ -297,7 +297,7 @@ class IncrementalExecutionTest extends Specification {
         then:
         result.outcome.failure.get().message == "Execution failed for Test unit of work."
         !result.reused
-        result.outOfDateReasons == ["Output property 'file' file ${outputFile.absolutePath} has changed."]
+        result.executionReasons == ["Output property 'file' file ${outputFile.absolutePath} has changed."]
     }
 
     def "out of date when any file in output dir has changed type"() {
@@ -312,7 +312,7 @@ class IncrementalExecutionTest extends Specification {
         then:
         result.outcome.failure.get().message == "Execution failed for Test unit of work."
         !result.reused
-        result.outOfDateReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has changed."]
+        result.executionReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has changed."]
     }
 
     def "out of date when any output file has changed contents"() {
@@ -323,9 +323,9 @@ class IncrementalExecutionTest extends Specification {
         outputFile << "new content"
         def result = execute(unitOfWork)
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["Output property 'file' file ${outputFile.absolutePath} has changed."]
+        result.executionReasons == ["Output property 'file' file ${outputFile.absolutePath} has changed."]
     }
 
     def "out of date when any file in output dir has changed contents"() {
@@ -336,9 +336,9 @@ class IncrementalExecutionTest extends Specification {
         outputDirFile << "new content"
         def result = execute(unitOfWork)
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has changed."]
+        result.executionReasons == ["Output property 'dir' file ${outputDirFile.absolutePath} has changed."]
     }
 
     def "out-of-date when any output files properties are added"() {
@@ -360,9 +360,9 @@ class IncrementalExecutionTest extends Specification {
         def result = execute(outputFilesRemovedUnitOfWork)
 
         then:
-        result.outcome.get() == EXECUTED
+        result.outcome.get() == EXECUTED_FULLY
         !result.reused
-        result.outOfDateReasons == ["Output property 'file' has been removed for ${outputFilesRemovedUnitOfWork.displayName}"]
+        result.executionReasons == ["Output property 'file' has been removed for ${outputFilesRemovedUnitOfWork.displayName}"]
     }
 
     def "out-of-date when implementation changes"() {
@@ -612,9 +612,9 @@ class IncrementalExecutionTest extends Specification {
 
     UpToDateResult outOfDate(UnitOfWork unitOfWork, List<String> expectedReasons) {
         def result = execute(unitOfWork)
-        assert result.outcome.get() == EXECUTED
+        assert result.outcome.get() == EXECUTED_FULLY
         assert !result.reused
-        assert result.outOfDateReasons == expectedReasons
+        assert result.executionReasons == expectedReasons
         return result
     }
 
@@ -656,11 +656,11 @@ class IncrementalExecutionTest extends Specification {
     }
 
     class UnitOfWorkBuilder {
-        private BooleanSupplier work = { ->
+        private Supplier<ExecutionOutcome> work = { ->
             create.each { it ->
                 it.createFile()
             }
-            return true
+            return ExecutionOutcome.EXECUTED_FULLY
         }
         private Map<String, Object> inputProperties = [prop: "value"]
         private Map<String, ? extends Collection<? extends File>> inputs = inputFiles
@@ -670,7 +670,7 @@ class IncrementalExecutionTest extends Specification {
         private ImplementationSnapshot implementation = ImplementationSnapshot.of(UnitOfWork.name, HashCode.fromInt(1234))
         private
 
-        UnitOfWorkBuilder withWork(BooleanSupplier closure) {
+        UnitOfWorkBuilder withWork(Supplier<ExecutionOutcome> closure) {
             work = closure
             return this
         }
@@ -737,7 +737,7 @@ class IncrementalExecutionTest extends Specification {
                 @Override
                 ExecutionOutcome execute() {
                     executed = true
-                    return work.asBoolean ? EXECUTED : UP_TO_DATE
+                    return work.get()
                 }
 
                 @Override
